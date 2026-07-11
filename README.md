@@ -85,11 +85,4 @@ python3 validate.py               # train + clustering check + MMD check
 python3 generalization_check.py   # held-out generalization check
 ```
 
-## Next steps toward the real Idea 2 track
 
-1. Swap in the pretrained backbone above.
-2. Replace the toy dataset with real (anonymized) client conversation pairs —
-   your freelance RAG clients are the data source the original doc pointed at.
-3. Re-run `validate.py`'s structure (clustering check + MMD check) on real data.
-4. Only once that works on real traffic does the 16-week Idea 2 roadmap
-   (OTel instrumentation, paired replay harness, dashboard) start making sense.
