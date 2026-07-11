@@ -1,32 +1,28 @@
 """
-End-to-end validation, tying together everything above:
+End-to-end validation for the v2 pretrained contrastive encoder.
 
-1. Train the contrastive encoder on the toy dataset (from random init).
-2. Check it actually clusters same-intent paraphrases together in embedding space.
-3. Run the MMD drift test on the trained embeddings:
+1. Train (fine-tune the projection head) on the toy dataset.
+2. Check same-intent clustering in embedding space.
+3. Run the MMD drift test:
    - two DIFFERENT intents        -> should be flagged as different (low p-value)
    - same intent split in half    -> should NOT be flagged (high p-value)
 
-This is the exact test structure Idea 2's drift detector depends on -- run here
-on toy data first, so you see the whole pipeline work before touching real traffic.
-
-Run: python3 validate.py
+Run: python3 validate_v2.py
 """
 
 import numpy as np
 import torch
 
-from data import build_vocab, encode, INTENTS
-from train import train
+from data import INTENTS
+from train_v2 import train
 from eval_drift import permutation_test
 
 
-def embed_all(model, word2idx):
+def embed_all(model):
     embeddings = {}
     for intent, sentences in INTENTS.items():
-        ids = torch.tensor([encode(s, word2idx) for s in sentences], dtype=torch.long)
         with torch.no_grad():
-            z = model(ids)
+            z = model(sentences)
         embeddings[intent] = z.numpy()
     return embeddings
 
@@ -59,17 +55,15 @@ def check_mmd(embeddings):
     print(f"different intents (refund vs shipping): MMD^2={stat:.4f}  p={p:.3f}  -> {verdict}")
 
     c = embeddings["refund_status"]
-    half1, half2 = c[:2], c[2:4]
+    half1, half2 = c[:5], c[5:10]
     stat2, p2 = permutation_test(half1, half2, n_permutations=200)
     verdict2 = "DRIFT DETECTED (false alarm)" if p2 < 0.05 else "no drift (correct)"
     print(f"same intent, split in half            : MMD^2={stat2:.4f}  p={p2:.3f}  -> {verdict2}")
-    print("(note: only 2 vs 2 points in the same-intent split -- small-sample toy check, "
-          "not a rigorous power analysis. Real data will have far more samples per cluster.)")
 
 
 if __name__ == "__main__":
     print("--- training ---")
-    model, word2idx = train(epochs=300)
-    embeddings = embed_all(model, word2idx)
+    model = train(epochs=300)
+    embeddings = embed_all(model)
     check_clustering(embeddings)
     check_mmd(embeddings)
