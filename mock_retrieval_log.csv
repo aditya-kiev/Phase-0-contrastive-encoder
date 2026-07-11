@@ -1,0 +1,20 @@
+query_id,query_text,retrieved_chunk_id
+0,where is my refund,chunk_refund_policy
+1,refund status please,chunk_refund_policy
+2,when do refunds process,chunk_refund_policy
+3,my refund is late,chunk_refund_policy
+4,checking on a refund,chunk_refund_policy
+5,package tracking,chunk_shipping_info
+6,where is my order,chunk_shipping_info
+7,shipping delay question,chunk_shipping_info
+8,delivery estimate,chunk_shipping_info
+9,reset password,chunk_password_help
+10,cannot log in,chunk_password_help
+11,forgot my login,chunk_password_help
+12,why was i charged,chunk_billing_faq
+13,duplicate charge on card,chunk_billing_faq
+14,billing question,chunk_billing_faq
+15,invoice looks wrong,chunk_billing_faq
+16,how do i return this,chunk_returns_policy
+17,need a return label,chunk_returns_policy
+18,return window question,chunk_returns_policy

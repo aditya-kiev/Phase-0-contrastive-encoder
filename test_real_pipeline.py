@@ -23,22 +23,33 @@ from drift_report import compare_snapshots, print_report
 
 MOCK_TOPICS = {
     "chunk_refund_policy": [
-        "where is my refund", "refund status please", "when do refunds process",
-        "my refund is late", "checking on a refund",
+        "where is my refund",
+        "refund status please",
+        "when do refunds process",
+        "my refund is late",
+        "checking on a refund",
     ],
     "chunk_shipping_info": [
-        "package tracking", "where is my order", "shipping delay question",
+        "package tracking",
+        "where is my order",
+        "shipping delay question",
         "delivery estimate",
     ],
     "chunk_password_help": [
-        "reset password", "cannot log in", "forgot my login",
+        "reset password",
+        "cannot log in",
+        "forgot my login",
     ],
     "chunk_billing_faq": [
-        "why was i charged", "duplicate charge on card", "billing question",
+        "why was i charged",
+        "duplicate charge on card",
+        "billing question",
         "invoice looks wrong",
     ],
     "chunk_returns_policy": [
-        "how do i return this", "need a return label", "return window question",
+        "how do i return this",
+        "need a return label",
+        "return window question",
     ],
 }
 
@@ -48,10 +59,14 @@ def write_mock_csv(path):
     qid = 0
     for chunk_id, queries in MOCK_TOPICS.items():
         for q in queries:
-            rows.append({"query_id": qid, "query_text": q, "retrieved_chunk_id": chunk_id})
+            rows.append(
+                {"query_id": qid, "query_text": q, "retrieved_chunk_id": chunk_id}
+            )
             qid += 1
     with open(path, "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=["query_id", "query_text", "retrieved_chunk_id"])
+        writer = csv.DictWriter(
+            f, fieldnames=["query_id", "query_text", "retrieved_chunk_id"]
+        )
         writer.writeheader()
         writer.writerows(rows)
     return len(rows)
@@ -59,7 +74,7 @@ def write_mock_csv(path):
 
 def test_pairing():
     print("--- testing real_data.py (retrieval-based pairing) ---")
-    path = "/tmp/mock_retrieval_log.csv"
+    path = "mock_retrieval_log.csv"
     n = write_mock_csv(path)
     print(f"wrote mock log: {n} queries across {len(MOCK_TOPICS)} chunks")
 
@@ -67,7 +82,9 @@ def test_pairing():
     groups = build_groups(df, "retrieved_chunk_id")
     print(f"usable groups (>=2 queries): {len(groups)}")
 
-    anchors, positives, labels = sample_pair_batch(groups, batch_size=len(groups), seed=0)
+    anchors, positives, labels = sample_pair_batch(
+        groups, batch_size=len(groups), seed=0
+    )
     print("sample positive pairs drawn:")
     for a, p, l in zip(anchors, positives, labels):
         print(f"  [{l}] '{a}'  <->  '{p}'")
@@ -77,6 +94,7 @@ def test_pairing():
 # 2. Mock two traffic snapshots (before/after) with KNOWN shifted vs stable
 #    groups, to verify compare_snapshots correctly ranks the real shifts on top.
 # ---------------------------------------------------------------------------
+
 
 def make_embeddings(center, n, dim=16, noise=0.3, seed=0):
     rng = np.random.default_rng(seed)
@@ -99,7 +117,9 @@ def test_drift_ranking():
             shifted_center = center + rng.normal(scale=2.5, size=dim)  # real shift
             after[label] = make_embeddings(shifted_center, n=20, dim=dim, seed=i + 100)
         else:
-            after[label] = make_embeddings(center, n=20, dim=dim, seed=i + 100)  # same distribution
+            after[label] = make_embeddings(
+                center, n=20, dim=dim, seed=i + 100
+            )  # same distribution
 
     results = compare_snapshots(before, after, n_permutations=200, seed=0)
     print_report(results)
@@ -108,8 +128,11 @@ def test_drift_ranking():
     correct = top_2 == shifted_groups
     print(f"\nground truth shifted groups: {shifted_groups}")
     print(f"top-2 ranked by report:      {top_2}")
-    print("PASS -- correctly identified the real shifts as top priority" if correct
-          else "FAIL -- ranking did not match ground truth, needs investigation")
+    print(
+        "PASS -- correctly identified the real shifts as top priority"
+        if correct
+        else "FAIL -- ranking did not match ground truth, needs investigation"
+    )
 
 
 if __name__ == "__main__":
