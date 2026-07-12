@@ -1,95 +1,68 @@
-# Phase 0 — Contrastive Encoder, Built and Verified
+# Contrastive Encoder — Phase 0
 
-This is the thing the deep-dive doc assumes you already had. You didn't, so we built
-it from scratch and actually ran it — every number below is a real output from this
-code, not a claim.
+Learning how contrastive learning actually works, before using it for real: a
+drift-detection tool that flags when an LLM/RAG pipeline's behavior changes
+between model versions.
 
-## What's in here
+## What's here
+
+A small encoder trained with InfoNCE loss on a toy dataset (support-ticket
+style sentences grouped by intent), plus an MMD two-sample test to check
+whether two sets of embeddings come from different distributions. Two
+versions of the encoder:
+
+- **v1** (`model.py`) — word embeddings, mean-pooled, projection head.
+  Trained from scratch, no pretrained weights. Bag-of-words — word order
+  doesn't matter. Good enough to learn the loss/embedding mechanics, not
+  good enough for real text.
+- **v2** (`train_v2.py`) — same loss and training shape, but the backbone is
+  a pretrained sentence-transformer (`all-MiniLM-L6-v2`), frozen, with only
+  a small projection head trained on top. Dataset expanded to 12 intents.
+
+## Files
 
 | File | What it does |
 |---|---|
-| `data.py` | Toy dataset: 5 support-ticket intents, 5 paraphrases each. Pair sampler for in-batch negatives. |
-| `model.py` | `ContrastiveEncoder` — word embeddings, masked mean-pool, projection head, L2-normalized output. Trained from random init, not pretrained. |
-| `losses.py` | `info_nce_loss` — real NT-Xent/InfoNCE, symmetric, in-batch negatives. This is the loss both Idea 1 and Idea 2 depend on. |
-| `train.py` | Training loop. `python3 train.py` |
-| `eval_drift.py` | `mmd2` + `permutation_test` — the MMD two-sample test that's the statistical core of Idea 2's drift detector. |
-| `validate.py` | End-to-end: train, check clustering, run the MMD test on trained embeddings. |
-| `generalization_check.py` | Tests 5 held-out sentences (never seen in training) to check the encoder learned something real, not just memorized. |
+| `data.py` | toy dataset (5 intents) + pair sampler for v1 |
+| `model.py` | v1 encoder — embeddings, mean pool, projection head |
+| `losses.py` | InfoNCE / NT-Xent loss |
+| `train.py` / `validate.py` | v1 training + clustering/drift checks |
+| `train_v2.py` / `validate_v2.py` | v2 training on 12 intents with pretrained backbone |
+| `generalization_check.py` / `generalization_check_v2.py` | held-out sentence checks |
+| `eval_drift.py` | MMD two-sample test |
+| `real_data.py` | turns a real query log into training pairs — groups queries by which chunk they retrieved, no manual labeling needed |
+| `drift_report.py` | ranks which behavior cluster actually shifted between two traffic snapshots, instead of one global number |
+| `test_real_pipeline.py` | smoke test for the two files above, using mock data |
 
-## Verified results (actual run, this session)
+## Results so far
 
-**Training** converged: loss went from 2.14 to 0.0002 over 300 steps.
+v1 (toy, 5 intents): same-intent cosine sim 0.95 vs. different-intent -0.23.
+MMD test correctly flags two different intents as drifted (p=0.015) and
+correctly passes a same-intent split (p=1.0, small sample though). 5/5
+held-out sentences matched their correct cluster.
 
-**Clustering** (`validate.py`):
-- avg same-intent cosine similarity: **0.952**
-- avg different-intent cosine similarity: **-0.233**
-- Same-intent paraphrases sit close together in embedding space; different intents sit far apart. This is the entire point of a contrastive encoder.
+v2 (pretrained backbone, 12 intents): same-intent sim 0.87 vs. -0.07,
+12/12 held-out sentences matched correctly, MMD test still correctly
+separates drift from no-drift (p=0.005 / p=0.93).
 
-**MMD drift test** (`validate.py`):
-- Different intents (refund vs. shipping): MMD²=0.110, **p=0.015 → correctly flagged as drift**
-- Same intent split in half: MMD²=-0.076, **p=1.000 → correctly NOT flagged**
-- (Caveat: the "same intent" split is only 2 vs 2 points — a toy sanity check, not a real power analysis. Real traffic will have far more samples per cluster.)
+Pairing + drift-ranking logic (`real_data.py`, `drift_report.py`): tested on
+mock data, correctly identified 2/8 deliberately-shifted synthetic groups as
+the top priority, ignoring the other 6.
 
-**Generalization** (`generalization_check.py`):
-- 5 held-out sentences, built from the same vocab but never seen verbatim in training, all matched their correct intent cluster (5/5).
-- This means the word embeddings learned real structure, not just memorized the 25 training strings.
-
-## The honest limitation
-
-`ContrastiveEncoder` mean-pools word embeddings — it's a **bag-of-words model**.
-Word order carries zero information ("cancel my plan" and "plan my cancel" embed
-identically). That's fine for Phase 0 — the goal was to understand InfoNCE loss and
-embedding-space mechanics, which you now have working code and real numbers for.
-
-It is NOT fine for the real Idea 2 build. Real support/RAG conversations need
-actual sequence understanding. The fix is to swap `model.py`'s encoder for a
-pretrained sentence encoder (e.g. `sentence-transformers/all-MiniLM-L6-v2`) and
-fine-tune its output with the same `info_nce_loss` you already have. The loss
-function, training loop shape, and MMD test in this repo carry over unchanged —
-only the encoder's forward pass changes.
-
-I couldn't install/test that swap in this sandbox (no access to Hugging Face's
-model hub from here — only PyPI/GitHub are reachable). On your own machine or
-Colab, it's:
+## Run it
 
 ```bash
-pip install sentence-transformers
+pip install -r requirements.txt
+python3 validate.py                # v1: train + clustering + drift check
+python3 generalization_check.py    # v1: held-out check
+python3 validate_v2.py             # v2: same, with pretrained backbone
+python3 generalization_check_v2.py
+python3 test_real_pipeline.py      # pairing + ranked drift report, mock data
 ```
 
-```python
-from sentence_transformers import SentenceTransformer
-import torch.nn as nn
+## What's next
 
-class PretrainedContrastiveEncoder(nn.Module):
-    def __init__(self, proj_dim=128):
-        super().__init__()
-        self.backbone = SentenceTransformer("all-MiniLM-L6-v2")
-        self.proj = nn.Linear(384, proj_dim)  # MiniLM's native dim is 384
-
-    def forward(self, sentences):  # list[str], not token ids
-        with torch.no_grad():  # freeze backbone at first; unfreeze later to fine-tune
-            base_emb = self.backbone.encode(sentences, convert_to_tensor=True)
-        z = self.proj(base_emb)
-        return nn.functional.normalize(z, dim=-1)
-```
-
-Then feed real anchor/positive pairs from your own client conversation logs
-(two user messages resolved by the same underlying intent = positive pair)
-through the exact same `info_nce_loss` and training loop shape you already have here.
-
-## Run order
-
-```bash
-pip install torch numpy
-python3 validate.py               # train + clustering check + MMD check
-python3 generalization_check.py   # held-out generalization check
-```
-
-## Next steps toward the real Idea 2 track
-
-1. Swap in the pretrained backbone above.
-2. Replace the toy dataset with real (anonymized) client conversation pairs —
-   your freelance RAG clients are the data source the original doc pointed at.
-3. Re-run `validate.py`'s structure (clustering check + MMD check) on real data.
-4. Only once that works on real traffic does the 16-week Idea 2 roadmap
-   (OTel instrumentation, paired replay harness, dashboard) start making sense.
+Everything above runs on synthetic/toy data. The real next step is plugging
+in an actual client's query log (`query_id, query_text, retrieved_chunk_id`
+CSV — see `real_data.py`) and re-running the same clustering + drift checks
+on real embeddings instead of made-up sentences.
