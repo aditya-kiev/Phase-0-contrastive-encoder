@@ -7,18 +7,15 @@ End-to-end validation, tying together everything above:
    - two DIFFERENT intents        -> should be flagged as different (low p-value)
    - same intent split in half    -> should NOT be flagged (high p-value)
 
-This is the exact test structure Idea 2's drift detector depends on -- run here
-on toy data first, so you see the whole pipeline work before touching real traffic.
-
-Run: python3 validate.py
+Run: python -m encoder.validate
 """
 
 import numpy as np
 import torch
 
-from data import build_vocab, encode, INTENTS
-from train import train
-from eval_drift import permutation_test
+from data.dataset import INTENTS, build_vocab, encode
+from encoder.train import train
+from detectors.mmd import permutation_test
 
 
 def embed_all(model, word2idx):

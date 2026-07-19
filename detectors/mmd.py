@@ -11,7 +11,6 @@ def rbf_kernel(X, Y, gamma=None):
     X = np.asarray(X)
     Y = np.asarray(Y)
     if gamma is None:
-        # median-distance heuristic for kernel bandwidth
         combined = np.vstack([X, Y])
         dists = np.sum((combined[:, None, :] - combined[None, :, :]) ** 2, axis=-1)
         nonzero = dists[dists > 0]
@@ -28,7 +27,6 @@ def mmd2(X, Y, gamma=None):
     Kyy = rbf_kernel(Y, Y, gamma)
     Kxy = rbf_kernel(X, Y, gamma)
     m, n = len(X), len(Y)
-    # unbiased estimator: exclude diagonal for the within-sample terms
     term_xx = (Kxx.sum() - np.trace(Kxx)) / (m * (m - 1))
     term_yy = (Kyy.sum() - np.trace(Kyy)) / (n * (n - 1))
     term_xy = Kxy.sum() / (m * n)
@@ -36,7 +34,6 @@ def mmd2(X, Y, gamma=None):
 
 
 def permutation_test(X, Y, n_permutations=500, seed=0):
-    """Returns (observed MMD^2, p-value) via label-permutation null distribution."""
     rng = np.random.default_rng(seed)
     X = np.asarray(X)
     Y = np.asarray(Y)

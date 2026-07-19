@@ -5,19 +5,14 @@ This tests held-out sentences it never saw, built from the same vocabulary,
 to see whether the learned word embeddings actually combine sensibly -- or
 whether it just memorized exact training pairs.
 
-Also a deliberate architectural note: this encoder mean-pools word embeddings,
-so it's a bag-of-words model -- word ORDER carries no information. That's a
-real limitation vs. a pretrained sentence encoder (which you'll swap in for
-the real Idea 2 build). This script tells you honestly how much that costs you.
-
-Run: python3 generalization_check.py
+Run: python -m encoder.generalization_check
 """
 
 import numpy as np
 import torch
 
-from data import build_vocab, encode
-from train import train
+from data.dataset import INTENTS, build_vocab, encode
+from encoder.train import train
 
 HELD_OUT = {
     "refund_status": "i want to know refund status",
@@ -45,8 +40,6 @@ def main():
         row = [float(embeddings[a] @ embeddings[b]) for b in intents]
         print(f"{a:20s}" + "".join(f"{v:12.3f}" for v in row))
 
-    # does each held-out sentence match its OWN intent's trained cluster best?
-    from data import INTENTS
     correct = 0
     for intent, sentence in HELD_OUT.items():
         held_vec = embeddings[intent]

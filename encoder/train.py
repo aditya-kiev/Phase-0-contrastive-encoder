@@ -3,14 +3,14 @@ Phase 0 training loop.
 Trains ContrastiveEncoder from random initialization on the toy paraphrase
 dataset, using in-batch InfoNCE loss.
 
-Run directly: python3 train.py
+Run: python -m encoder.train
 """
 
 import torch
 
-from data import build_vocab, sample_batch
-from model import ContrastiveEncoder
-from losses import info_nce_loss
+from data.dataset import build_vocab, sample_batch
+from encoder.model import ContrastiveEncoder
+from encoder.losses import info_nce_loss
 
 
 def train(epochs=300, lr=1e-2, embed_dim=32, proj_dim=16, temperature=0.1, seed=0, verbose=True):

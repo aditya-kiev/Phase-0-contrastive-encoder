@@ -181,10 +181,6 @@ INTENTS = {
 
 
 def sample_batch_v2(batch_size=10):
-    """
-    Return raw sentence strings — one anchor + one positive per intent.
-    Other intents in the batch act as in-batch negatives for InfoNCE.
-    """
     intents = random.sample(list(INTENTS.keys()), k=min(batch_size, len(INTENTS)))
     anchors, positives, labels = [], [], []
     for intent in intents:
@@ -194,8 +190,6 @@ def sample_batch_v2(batch_size=10):
         labels.append(intent)
     return anchors, positives, labels
 
-
-# --- Phase 0 legacy helpers (kept for backward compat, not used by Phase 1) ---
 
 def build_vocab():
     words = set()

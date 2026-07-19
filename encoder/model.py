@@ -24,12 +24,10 @@ class ContrastiveEncoder(nn.Module):
         )
 
     def forward(self, token_ids):
-        # token_ids: (batch, seq_len), 0 = padding
-        mask = (token_ids != 0).unsqueeze(-1).float()      # (batch, seq_len, 1)
-        embedded = self.embedding(token_ids)                # (batch, seq_len, embed_dim)
-        summed = (embedded * mask).sum(dim=1)                # (batch, embed_dim)
-        counts = mask.sum(dim=1).clamp(min=1e-6)             # (batch, 1)
-        pooled = summed / counts                             # masked mean pool
-
+        mask = (token_ids != 0).unsqueeze(-1).float()
+        embedded = self.embedding(token_ids)
+        summed = (embedded * mask).sum(dim=1)
+        counts = mask.sum(dim=1).clamp(min=1e-6)
+        pooled = summed / counts
         z = self.proj(pooled)
-        return F.normalize(z, dim=-1)                        # unit-norm -> dot product = cosine sim
+        return F.normalize(z, dim=-1)
