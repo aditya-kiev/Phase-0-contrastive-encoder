@@ -62,7 +62,36 @@ python3 test_real_pipeline.py      # pairing + ranked drift report, mock data
 
 ## What's next
 
+<<<<<<< HEAD
 Everything above runs on synthetic/toy data. The real next step is plugging
 in an actual client's query log (`query_id, query_text, retrieved_chunk_id`
 CSV — see `real_data.py`) and re-running the same clustering + drift checks
 on real embeddings instead of made-up sentences.
+=======
+class PretrainedContrastiveEncoder(nn.Module):
+    def __init__(self, proj_dim=128):
+        super().__init__()
+        self.backbone = SentenceTransformer("all-MiniLM-L6-v2")
+        self.proj = nn.Linear(384, proj_dim)  # MiniLM's native dim is 384
+
+    def forward(self, sentences):  # list[str], not token ids
+        with torch.no_grad():  # freeze backbone at first; unfreeze later to fine-tune
+            base_emb = self.backbone.encode(sentences, convert_to_tensor=True)
+        z = self.proj(base_emb)
+        return nn.functional.normalize(z, dim=-1)
+```
+
+Then feed real anchor/positive pairs from your own client conversation logs
+(two user messages resolved by the same underlying intent = positive pair)
+through the exact same `info_nce_loss` and training loop shape you already have here.
+
+## Run order
+
+```bash
+pip install torch numpy
+python3 validate.py               # train + clustering check + MMD check
+python3 generalization_check.py   # held-out generalization check
+```
+
+
+>>>>>>> ecec4f08974c0832188496653175f72b268978cb
